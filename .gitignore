@@ -1,4 +1,4 @@
 /node-modules
-privateConstants.js
+private.js
 *.txt
 *.json

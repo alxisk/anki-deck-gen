@@ -1,16 +1,23 @@
-const fs = require('fs')
+const fs = require("fs");
 
-const handleResponse = res => {
-  const body = []
+const results = [];
 
-  res.on('data', (chunk) => {
-    body.push(chunk)
-  })
+const handleResponse = (res, callback) => {
+  const body = [];
 
-  res.on('end', () => {
-    const result = Buffer.concat(body).toString()
-    fs.writeFileSync('result.txt', result, 'utf8')
-  })
-}
+  res.on("data", chunk => {
+    body.push(chunk);
+  });
 
-module.exports = handleResponse
+  res.on("end", () => {
+    const result = Buffer.concat(body).toString();
+    results.push(JSON.parse(result).results[0]);
+
+    if (callback) {
+      callback();
+    }
+  });
+};
+
+module.exports = handleResponse;
+module.exports.results = results;
