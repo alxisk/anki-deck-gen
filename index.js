@@ -18,7 +18,7 @@ const wordsList = file.split("\n").filter(word => word);
 
 const writeToFile = () => {
   const processedData = results.map(processData);
-  fs.writeFileSync("result.txt", processedData, "utf8");
+  fs.writeFileSync("result.txt", JSON.stringify(processedData), "utf8");
 };
 
 const requestWordsData = (words, callback) => {
