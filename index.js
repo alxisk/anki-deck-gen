@@ -2,9 +2,11 @@ const path = require("path");
 const fs = require("fs");
 const https = require("https");
 const handleResponse = require("./handleResponse");
-const results = handleResponse.results;
-const { appId, appKey } = require("./private");
-const processData = require("./processData");
+const { dictAppId, dictAppKey, translationApiKey } = require("./private");
+const processDataItem = require("./processDataItem");
+const formatData = require("./formatData");
+const { DICTIONARY, TRANSLATE } = require("./constants");
+const translateApi = require("google-translate-api");
 
 const filePath = path.resolve(__dirname, "words.txt");
 
@@ -16,20 +18,22 @@ if (!fs.existsSync(filePath)) {
 const file = fs.readFileSync(filePath, "utf8");
 const wordsList = file.split("\n").filter(word => word);
 
-const writeToFile = () => {
-  const processedData = results.map(processData);
-  fs.writeFileSync("result.txt", JSON.stringify(processedData), "utf8");
+const writeToFile = data => {
+  const processedData = data.map(processDataItem);
+  const formattedData = formatData(processedData);
+
+  fs.writeFileSync("result.txt", formattedData.join("\n"), "utf8");
 };
 
 const requestWordsData = (words, callback) => {
-  const requests = words.map(word => {
-    return new Promise(resolve => {
+  const entries = words.map(word => {
+    const dictionaryData = new Promise(resolve => {
       const options = {
         hostname: "od-api.oxforddictionaries.com",
         headers: {
           Accept: "application/json",
-          app_id: appId,
-          app_key: appKey
+          app_id: dictAppId,
+          app_key: dictAppKey
         },
         port: 443,
         path: `/api/v1/entries/en/${word}`,
@@ -37,7 +41,7 @@ const requestWordsData = (words, callback) => {
       };
 
       const req = https.request(options, res => {
-        handleResponse(res, resolve);
+        handleResponse(res, resolve, DICTIONARY);
       });
 
       req.on("error", error => {
@@ -46,9 +50,18 @@ const requestWordsData = (words, callback) => {
 
       req.end();
     });
+
+    const translation = translateApi(word, { from: "en", to: "ru" }).then(
+      ({ text }) => ({ translation: text })
+    );
+
+    return Promise.all([dictionaryData, translation]).then(data => ({
+      ...data[0],
+      ...data[1]
+    }));
   });
 
-  Promise.all(requests).then(() => callback());
+  Promise.all(entries).then(data => callback(data));
 };
 
 requestWordsData(wordsList, writeToFile);

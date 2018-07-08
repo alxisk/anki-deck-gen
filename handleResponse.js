@@ -1,8 +1,17 @@
-const fs = require("fs");
+const { DICTIONARY, TRANSLATE } = require("./constants");
 
-const results = [];
+const getResult = (body, type) => {
+  switch (type) {
+    case DICTIONARY:
+      return JSON.parse(body).results[0];
+    case TRANSLATE:
+      return JSON.parse(body);
+    default:
+      throw new Error(`Unknown response type: ${type}`);
+  }
+};
 
-const handleResponse = (res, callback) => {
+const handleResponse = (res, callback, type) => {
   const body = [];
 
   res.on("data", chunk => {
@@ -10,14 +19,13 @@ const handleResponse = (res, callback) => {
   });
 
   res.on("end", () => {
-    const result = Buffer.concat(body).toString();
-    results.push(JSON.parse(result).results[0]);
+    const preparedBody = Buffer.concat(body).toString();
+    const result = getResult(preparedBody, type);
 
     if (callback) {
-      callback();
+      callback(result);
     }
   });
 };
 
 module.exports = handleResponse;
-module.exports.results = results;
