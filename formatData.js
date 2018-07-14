@@ -1,8 +1,13 @@
-const formatMultilineText = arr =>
-  `"${arr
-    .join("\n")
-    .replace(/\t/g, " ")
-    .replace(/"/g, '""')}"`;
+const formatMultilineText = arr => {
+  if (Array.isArray(arr) && arr.filter(item => !!item).length) {
+    return `"${arr
+      .join("\n")
+      .replace(/\t/g, " ")
+      .replace(/"/g, '""')}"`;
+  }
+
+  return "n/a";
+};
 
 const formatDataItem = data =>
   data

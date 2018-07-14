@@ -1,18 +1,26 @@
-const getTranscription = entries =>
-  entries[0].pronunciations[0].phoneticSpelling;
+const getTranscription = entries => {
+  try {
+    return entries[0].pronunciations[0].phoneticSpelling;
+  } catch (e) {
+    return null;
+  }
+};
 
-const getExplanation = entries =>
-  entries.map(entry => entry.entries[0].senses[0].definitions[0]);
+const getExplanation = entries => {
+  try {
+    return entries.map(entry => entry.entries[0].senses[0].definitions[0]);
+  } catch (e) {
+    return null;
+  }
+};
 
 const getExample = entries =>
   entries.map(entry => {
-    const examples = entry.entries[0].senses[0].examples;
-
-    if (examples && examples.length) {
-      return examples[0].text;
+    try {
+      return entry.entries[0].senses[0].examples[0].text;
+    } catch (e) {
+      return null;
     }
-
-    return null;
   });
 
 const processDataItem = item => {

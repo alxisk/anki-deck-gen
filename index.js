@@ -6,7 +6,6 @@ const { dictAppId, dictAppKey, translationApiKey } = require("./private");
 const processDataItem = require("./processDataItem");
 const formatData = require("./formatData");
 const { DICTIONARY, TRANSLATE } = require("./constants");
-const translateApi = require("google-translate-api");
 
 const filePath = path.resolve(__dirname, "words.txt");
 
@@ -19,10 +18,20 @@ const file = fs.readFileSync(filePath, "utf8");
 const wordsList = file.split("\n").filter(word => word);
 
 const writeToFile = data => {
-  const processedData = data.map(processDataItem);
+  const usefulData = data.filter(({ error }) => !error);
+  const errorData = data.filter(({ error }) => error);
+  const processedData = usefulData.map(processDataItem);
   const formattedData = formatData(processedData);
 
   fs.writeFileSync("result.txt", formattedData.join("\n"), "utf8");
+
+  if (errorData.length) {
+    fs.writeFileSync(
+      "error.log",
+      JSON.stringify(errorData.map(({ word, type }) => ({ word, type }))),
+      "utf8"
+    );
+  }
 };
 
 const requestWordsData = (words, callback) => {
@@ -41,7 +50,7 @@ const requestWordsData = (words, callback) => {
       };
 
       const req = https.request(options, res => {
-        handleResponse(res, resolve, DICTIONARY);
+        handleResponse(res, resolve, word, DICTIONARY);
       });
 
       req.on("error", error => {
@@ -51,9 +60,30 @@ const requestWordsData = (words, callback) => {
       req.end();
     });
 
-    const translation = translateApi(word, { from: "en", to: "ru" }).then(
-      ({ text }) => ({ translation: text })
-    );
+    const translation = new Promise(resolve => {
+      const options = {
+        hostname: "dictionary.yandex.net",
+        headers: {
+          Accept: "application/json",
+          app_id: dictAppId,
+          app_key: dictAppKey
+        },
+        port: 443,
+        path: `/api/v1/dicservice.json/lookup?key=${translationApiKey}&lang=en-ru&text=${word}`,
+        method: "GET",
+        timeout: 5000
+      };
+
+      const req = https.request(options, res => {
+        handleResponse(res, resolve, word, TRANSLATE);
+      });
+
+      req.on("error", error => {
+        console.error(error);
+      });
+
+      req.end();
+    });
 
     return Promise.all([dictionaryData, translation]).then(data => ({
       ...data[0],
