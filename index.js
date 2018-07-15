@@ -5,7 +5,7 @@ const handleResponse = require("./handleResponse");
 const { dictAppId, dictAppKey, translationApiKey } = require("./private");
 const processDataItem = require("./processDataItem");
 const formatData = require("./formatData");
-const { DICTIONARY, TRANSLATE } = require("./constants");
+const { REQUEST_TIMEOUT, DICTIONARY, TRANSLATE } = require("./constants");
 
 const filePath = path.resolve(__dirname, "words.txt");
 
@@ -34,64 +34,77 @@ const writeToFile = data => {
   }
 };
 
-const requestWordsData = (words, callback) => {
-  const entries = words.map(word => {
-    const dictionaryData = new Promise(resolve => {
-      const options = {
-        hostname: "od-api.oxforddictionaries.com",
-        headers: {
-          Accept: "application/json",
-          app_id: dictAppId,
-          app_key: dictAppKey
-        },
-        port: 443,
-        path: `/api/v1/entries/en/${word}`,
-        method: "GET"
-      };
+const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-      const req = https.request(options, res => {
-        handleResponse(res, resolve, word, DICTIONARY);
-      });
+const makeRequests = word => {
+  const dictionaryData = new Promise(resolve => {
+    const options = {
+      hostname: "od-api.oxforddictionaries.com",
+      headers: {
+        Accept: "application/json",
+        app_id: dictAppId,
+        app_key: dictAppKey
+      },
+      port: 443,
+      path: `/api/v1/entries/en/${word}`,
+      method: "GET"
+    };
 
-      req.on("error", error => {
-        console.error(error);
-      });
-
-      req.end();
+    const req = https.request(options, res => {
+      handleResponse(res, resolve, word, DICTIONARY);
     });
 
-    const translation = new Promise(resolve => {
-      const options = {
-        hostname: "dictionary.yandex.net",
-        headers: {
-          Accept: "application/json",
-          app_id: dictAppId,
-          app_key: dictAppKey
-        },
-        port: 443,
-        path: `/api/v1/dicservice.json/lookup?key=${translationApiKey}&lang=en-ru&text=${word}`,
-        method: "GET",
-        timeout: 5000
-      };
-
-      const req = https.request(options, res => {
-        handleResponse(res, resolve, word, TRANSLATE);
-      });
-
-      req.on("error", error => {
-        console.error(error);
-      });
-
-      req.end();
+    req.on("error", error => {
+      console.error(error);
     });
 
-    return Promise.all([dictionaryData, translation]).then(data => ({
-      ...data[0],
-      ...data[1]
-    }));
+    req.end();
   });
 
-  Promise.all(entries).then(data => callback(data));
+  const translation = new Promise(resolve => {
+    const options = {
+      hostname: "dictionary.yandex.net",
+      headers: {
+        Accept: "application/json",
+        app_id: dictAppId,
+        app_key: dictAppKey
+      },
+      port: 443,
+      path: `/api/v1/dicservice.json/lookup?key=${translationApiKey}&lang=en-ru&text=${word}`,
+      method: "GET"
+    };
+
+    const req = https.request(options, res => {
+      handleResponse(res, resolve, word, TRANSLATE);
+    });
+
+    req.on("error", error => {
+      console.error(error);
+    });
+
+    req.end();
+  });
+
+  return Promise.all([
+    dictionaryData,
+    translation,
+    timeout(REQUEST_TIMEOUT)
+  ]).then(data => ({
+    ...data[0],
+    ...data[1]
+  }));
+};
+
+const requestWordsData = async (words, callback) => {
+  const entries = [];
+
+  for (let word of words) {
+    const entry = await makeRequests(word);
+
+    entries.push(entry);
+  }
+
+  callback(entries);
 };
 
 requestWordsData(wordsList, writeToFile);
