@@ -1,34 +1,34 @@
 const getTranscription = entries => {
   try {
-    return entries[0].pronunciations[0].phoneticSpelling;
+    return entries[0].pronunciations[0].phoneticSpelling
   } catch (e) {
-    return null;
+    return null
   }
-};
+}
 
 const getExplanation = entries => {
   try {
-    return entries.map(entry => entry.entries[0].senses[0].definitions[0]);
+    return entries.map(entry => entry.entries[0].senses[0].definitions[0])
   } catch (e) {
-    return null;
+    return null
   }
-};
+}
 
 const getExample = entries =>
   entries.map(entry => {
     try {
-      return entry.entries[0].senses[0].examples[0].text;
+      return entry.entries[0].senses[0].examples[0].text
     } catch (e) {
-      return null;
+      return null
     }
-  });
+  })
 
 const processDataItem = item => {
-  const lexicalEntries = item.lexicalEntries;
+  const lexicalEntries = item.lexicalEntries
 
   if (!Array.isArray(lexicalEntries)) {
-    console.error(`Word ${item.word} has no entries.`);
-    return;
+    console.error(`Word ${item.word} has no entries.`)
+    return
   }
 
   return {
@@ -36,10 +36,10 @@ const processDataItem = item => {
     transcription: getTranscription(lexicalEntries),
     explanation: getExplanation(lexicalEntries),
     example: getExample(lexicalEntries),
-    synonyms: "",
+    synonyms: '',
     russian: item.translation,
-    additionalRussian: ""
-  };
-};
+    additionalRussian: '',
+  }
+}
 
-module.exports = processDataItem;
+module.exports = processDataItem

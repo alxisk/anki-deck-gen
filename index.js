@@ -1,110 +1,108 @@
-const path = require("path");
-const fs = require("fs");
-const https = require("https");
-const handleResponse = require("./handleResponse");
-const { dictAppId, dictAppKey, translationApiKey } = require("./private");
-const processDataItem = require("./processDataItem");
-const formatData = require("./formatData");
-const { REQUEST_TIMEOUT, DICTIONARY, TRANSLATE } = require("./constants");
+const path = require('path')
+const fs = require('fs')
+const https = require('https')
+const handleResponse = require('./handleResponse')
+const { dictAppId, dictAppKey, translationApiKey } = require('./private')
+const processDataItem = require('./processDataItem')
+const formatData = require('./formatData')
+const { REQUEST_TIMEOUT, DICTIONARY, TRANSLATE } = require('./constants')
 
-const filePath = path.resolve(__dirname, "words.txt");
+const filePath = path.resolve(__dirname, 'words.txt')
 
 if (!fs.existsSync(filePath)) {
-  console.error('File "words.txt" is required to be in root directory');
-  return;
+  console.error('File "words.txt" is required to be in root directory')
+  return
 }
 
-const file = fs.readFileSync(filePath, "utf8");
-const wordsList = file.split("\n").filter(word => word);
+const file = fs.readFileSync(filePath, 'utf8')
+const wordsList = file.split('\n').filter(word => word)
 
 const writeToFile = data => {
-  const usefulData = data.filter(({ error }) => !error);
-  const errorData = data.filter(({ error }) => error);
-  const processedData = usefulData.map(processDataItem);
-  const formattedData = formatData(processedData);
+  const usefulData = data.filter(({ error }) => !error)
+  const errorData = data.filter(({ error }) => error)
+  const processedData = usefulData.map(processDataItem)
+  const formattedData = formatData(processedData)
 
-  fs.writeFileSync("result.txt", formattedData.join("\n"), "utf8");
+  fs.writeFileSync('result.txt', formattedData.join('\n'), 'utf8')
 
   if (errorData.length) {
     fs.writeFileSync(
-      "error.log",
+      'error.log',
       JSON.stringify(errorData.map(({ word, type }) => ({ word, type }))),
-      "utf8"
-    );
+      'utf8'
+    )
   }
-};
+}
 
-const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
+const timeout = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const makeRequests = word => {
   const dictionaryData = new Promise(resolve => {
     const options = {
-      hostname: "od-api.oxforddictionaries.com",
+      hostname: 'od-api.oxforddictionaries.com',
       headers: {
-        Accept: "application/json",
+        Accept: 'application/json',
         app_id: dictAppId,
-        app_key: dictAppKey
+        app_key: dictAppKey,
       },
       port: 443,
-      path: `/api/v1/entries/en/${word}`,
-      method: "GET"
-    };
+      path: `/api/v2/entries/en-us/${word}`,
+      method: 'GET',
+    }
 
     const req = https.request(options, res => {
-      handleResponse(res, resolve, word, DICTIONARY);
-    });
+      handleResponse(res, resolve, word, DICTIONARY)
+    })
 
-    req.on("error", error => {
-      console.error(error);
-    });
+    req.on('error', error => {
+      console.error(error)
+    })
 
-    req.end();
-  });
+    req.end()
+  })
 
   const translation = new Promise(resolve => {
     const options = {
-      hostname: "dictionary.yandex.net",
+      hostname: 'dictionary.yandex.net',
       headers: {
-        Accept: "application/json",
-        app_id: dictAppId,
-        app_key: dictAppKey
+        Accept: 'application/json',
       },
       port: 443,
       path: `/api/v1/dicservice.json/lookup?key=${translationApiKey}&lang=en-ru&text=${word}`,
-      method: "GET"
-    };
+      method: 'GET',
+    }
 
     const req = https.request(options, res => {
-      handleResponse(res, resolve, word, TRANSLATE);
-    });
+      handleResponse(res, resolve, word, TRANSLATE)
+    })
 
-    req.on("error", error => {
-      console.error(error);
-    });
+    req.on('error', error => {
+      console.error(error)
+    })
 
-    req.end();
-  });
+    req.end()
+  })
 
   return Promise.all([
     dictionaryData,
     translation,
-    timeout(REQUEST_TIMEOUT)
+    timeout(REQUEST_TIMEOUT),
   ]).then(data => ({
     ...data[0],
-    ...data[1]
-  }));
-};
+    ...data[1],
+  }))
+}
 
 const requestWordsData = async (words, callback) => {
-  const entries = [];
+  const entries = []
 
   for (let word of words) {
-    const entry = await makeRequests(word);
+    const entry = await makeRequests(word)
 
-    entries.push(entry);
+    entries.push(entry)
   }
 
-  callback(entries);
-};
+  callback(entries)
+}
 
-requestWordsData(wordsList, writeToFile);
+requestWordsData(wordsList, writeToFile)
